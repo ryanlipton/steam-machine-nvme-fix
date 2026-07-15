@@ -1,0 +1,10 @@
+[Unit]
+Description=Run nvme-power-cap heal 2min after boot and every 6h
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=6h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

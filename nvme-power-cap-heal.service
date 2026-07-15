@@ -1,0 +1,8 @@
+[Unit]
+Description=Verify and self-heal the NVMe 6W power-cap artefacts on both SteamOS slots
+After=local-fs.target home.mount var.mount
+ConditionPathExists=/home/.nvme-power-cap/heal.sh
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /home/.nvme-power-cap/heal.sh

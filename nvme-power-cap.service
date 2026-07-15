@@ -1,0 +1,16 @@
+[Unit]
+Description=Cap Sabrent Rocket 5 to NVMe power state 2 (6W) to prevent M.2 rail brownout
+DefaultDependencies=no
+Before=local-fs-pre.target sysinit.target
+After=systemd-udevd.service
+Wants=systemd-udevd.service
+ConditionPathExists=/dev/nvme0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Force power state 2 (6W). Retry a few times in case udev has not settled the char dev yet.
+ExecStart=/bin/sh -c 'for i in 1 2 3 4 5; do /usr/bin/nvme set-feature /dev/nvme0 -f 0x02 --value=0x2 && exit 0; sleep 0.3; done; exit 0'
+
+[Install]
+WantedBy=sysinit.target
