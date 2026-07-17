@@ -3,6 +3,15 @@
 Boot-time NVMe power cap for the Valve Steam Machine (2026), with a self-healing
 installer that survives SteamOS A/B updates.
 
+**In plain English:** you upgraded your Steam Machine with a fast Gen5 SSD and
+now it won't install SteamOS, or it freezes at the splash screen, and the drive
+seems to just vanish. The drive is fine. The Steam Machine's M.2 slot can't
+feed it enough power when it writes at full speed, so it browns out like a
+kettle tripping the fuse. This repo tells the drive to sip 6W instead of 11.5W,
+applies that on every boot and wake, and quietly repairs itself after SteamOS
+updates so the fix never disappears. Full write speed drops but stays at a
+very quick 2.1 GB/s, and everything else works exactly as normal.
+
 ## The problem
 
 The Steam Machine's M.2 slot cannot sustain the write-load power draw of some
