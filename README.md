@@ -83,9 +83,11 @@ controller.
 - A **factory reset** wipes `/var` and `/home`, removing the fix and the healer.
   Re-run `install.sh` from the recovery environment.
 - The heal log is at `/home/.nvme-power-cap/heal.log`.
-- Fit a heatsink or thermal pad: the E26 reached 85 C under load in this chassis
-  (thresholds 87/89 C). The brownout is electrical, not thermal, but the margin
-  is thin.
+- Fit a heatsink or thermal pad: bare, the E26 reached 85 C under load in this
+  chassis (thresholds 87/89 C). With a low-profile copper finned heatsink and
+  thermal pad it plateaus at 62 C under sustained gaming with zero throttle
+  events. The brownout is electrical, not thermal, but the 23 C of headroom is
+  well worth the fitting.
 - This is a workaround for a genuine hardware mismatch. The clean alternative is
   a lower-power PCIe Gen4 drive. Use at your own risk.
 
