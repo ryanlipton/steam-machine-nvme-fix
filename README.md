@@ -87,6 +87,26 @@ If the counter increments or the drive vanishes (`blockdev --getsize64` reads
 0), that state is too hot for the slot; step down and reboot to recover the
 controller.
 
+## Suspend and resume
+
+Two findings from suspend testing on this machine (2026-07-18):
+
+- **Add `nvme.noacpi=1` to the kernel command line.** By default the kernel
+  uses "simple suspend" for this drive: it stays powered through sleep and the
+  controller is reset in place on wake, which reverts the power cap at the
+  worst possible moment and can brown the drive out mid-resume (resume then
+  hangs with nothing written to the journal). With `nvme.noacpi=1` the drive
+  shuts down cleanly on suspend and cold-initialises on wake like a normal
+  boot, which is the reliable path. Edit `GRUB_CMDLINE_LINUX_DEFAULT` in
+  `/etc/default/grub` and run `update-grub`.
+- **The Steam Machine also has an unrelated intermittent s2idle resume hang**
+  (observed on BIOS F7F0105, SteamOS 3.8.14): roughly one wake in three
+  freezes with the pre-sleep frame on screen, dead input and no network, and
+  the kernel log stops at the Qualcomm Wi-Fi card re-initialising. That one is
+  a platform bug, not the SSD, and it is reported to Valve. Until it is fixed
+  the blunt workaround is to disable sleep:
+  `sudo systemctl mask sleep.target suspend.target`.
+
 ## Caveats
 
 - A **factory reset** wipes `/var` and `/home`, removing the fix and the healer.
