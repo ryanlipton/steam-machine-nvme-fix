@@ -57,7 +57,8 @@ Two catches make this non-trivial to keep applied:
 |---|---|---|
 | `nvme-power-cap.service` | `/etc` overlay upper on both var slots | Applies the cap early every boot (`DefaultDependencies=no`, before `local-fs-pre.target`) |
 | `nvme-power-cap.sh` | `systemd/system-sleep/` (both slots) | Re-applies the cap after every suspend/resume |
-| `heal.sh` + masters | `/home/.nvme-power-cap/` (shared partition, survives updates) | Verifies all artefacts on **both** slots, reinstalls anything an update removed, re-asserts the cap, logs every run |
+| `heal.sh` + masters | `/home/.nvme-power-cap/` (shared partition, survives updates) | Verifies all artefacts on **both** slots, reinstalls anything an update removed, re-asserts the cap, re-asserts `nvme.noacpi=1` in grub, keeps the sleep-target masks in place, logs every run |
+| `ath11k-reload.sh` | `systemd/system-sleep/` (both slots) | Cold-inits the Wi-Fi card across suspend (resume-hang workaround; inert while sleep is masked) |
 | `nvme-power-cap-heal.service` + `.timer` | `/etc` overlay upper on both slots | Runs heal 2 minutes after boot and every 6 hours |
 
 The key mechanism: SteamOS mounts `/etc` as an overlay whose writable layer
