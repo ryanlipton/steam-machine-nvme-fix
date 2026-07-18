@@ -35,7 +35,7 @@ install_into(){
 }
 
 # 1. running slot (live /var)
-install_into /var/lib/overlays/etc/upper self
+install_into /etc self
 
 # 2. other slot
 SELF=$(findmnt -no SOURCE /var 2>/dev/null)
