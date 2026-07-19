@@ -1,7 +1,18 @@
 # steam-machine-nvme-fix
 
-Boot-time NVMe power cap for the Valve Steam Machine (2026), with a self-healing
-installer that survives SteamOS A/B updates.
+Workarounds for running a Valve Steam Machine (2026) with a high-power PCIe
+Gen5 NVMe drive, with a self-healing installer that survives SteamOS A/B
+updates.
+
+**These are workarounds, not fixes.** Two of the three problems here belong to
+the vendors: a slot that cannot deliver the power a Gen5 drive asks for, and a
+platform suspend bug that hangs the machine on wake. Both are reported (Valve
+ticket for the machine, feature request to Sabrent for the drive). Everything
+in this repo exists to make the console reliable in the meantime, and each
+piece is built to retire itself when the real fix arrives: the power cap
+becomes unnecessary if the slot's budget is raised or you fit a lower-power
+drive, and the sleep and HDMI-CEC workarounds stop firing the moment suspend is
+safe to re-enable.
 
 **In plain English:** you upgraded your Steam Machine with a fast Gen5 SSD and
 now it won't install SteamOS, or it freezes at the splash screen, and the drive
@@ -91,7 +102,8 @@ controller.
 
 ## Suspend and resume
 
-Two findings from suspend testing on this machine (2026-07-18):
+Findings from suspend testing (2026-07-18, BIOS F7F0105, SteamOS 3.8.14, since
+kept on 3.8.16):
 
 - **Add `nvme.noacpi=1` to the kernel command line.** By default the kernel
   uses "simple suspend" for this drive: it stays powered through sleep and the
@@ -100,14 +112,27 @@ Two findings from suspend testing on this machine (2026-07-18):
   hangs with nothing written to the journal). With `nvme.noacpi=1` the drive
   shuts down cleanly on suspend and cold-initialises on wake like a normal
   boot, which is the reliable path. Edit `GRUB_CMDLINE_LINUX_DEFAULT` in
-  `/etc/default/grub` and run `update-grub`.
-- **The Steam Machine also has an unrelated intermittent s2idle resume hang**
-  (observed on BIOS F7F0105, SteamOS 3.8.14): roughly one wake in three
-  freezes with the pre-sleep frame on screen, dead input and no network, and
-  the kernel log stops at the Qualcomm Wi-Fi card re-initialising. That one is
-  a platform bug, not the SSD, and it is reported to Valve. Until it is fixed
-  the blunt workaround is to disable sleep:
-  `sudo systemctl mask sleep.target suspend.target`.
+  `/etc/default/grub` and run `update-grub`. `heal.sh` re-applies this if an
+  update ever strips it.
+- **The Steam Machine also has an unrelated intermittent s2idle resume hang.**
+  Roughly one wake in three freezes: sometimes nothing comes back at all with
+  the journal silent after `PM: suspend entry`, sometimes the pre-sleep frame
+  is painted on screen with the clock frozen, input dead and no network. Across
+  three instrumented captures the point of death moved (storage, then the
+  Qualcomm Wi-Fi card re-initialising, then before anything could be logged),
+  and two targeted fixes each changed the symptoms without curing them, which
+  is why this reads as a platform firmware or kernel bug rather than any one
+  driver. Reported to Valve.
+
+Until Valve fixes it, the blunt workaround is to disable sleep entirely:
+
+    sudo systemctl mask sleep.target suspend.target suspend-then-hibernate.target hibernate.target
+
+Also set the idle sleep timer to "never" in Settings > Power, so Steam stops
+attempting a sleep that will be refused. `heal.sh` keeps the masks in place on
+both slots across updates. Reversing this is one `systemctl unmask` plus
+removing the mask loop from `heal.sh`, and the sensible re-test is ten
+suspend/wake cycles before trusting it again.
 
 ## HDMI-CEC: TV on, TV off
 
@@ -135,9 +160,20 @@ machine on; TV off, machine off. It is self-limiting by design, since the
 refusal only happens while sleep is masked, so it never fires again once sleep
 is safe to re-enable.
 
+Verified end to end on 2026-07-19: TV off produced
+
+    cec-standby-poweroff: TV requested standby; powering off
+    steam: Shutdown
+    systemd: Reached target Shutdown
+
+and the machine powered itself back on 79 seconds later when the TV was
+switched on again.
+
 Note it powers off rather than suspending, so a game left running is closed by
 the shutdown. Steam Cloud syncs saves, but unsaved progress since the last
-checkpoint is lost.
+checkpoint is lost. If you would rather the TV did not power the console on at
+all, `WakeDevice` on the HDMI-CEC interface is writable, and SteamOS exposes
+the setting in its HDMI-CEC options.
 
 ## Caveats
 
@@ -149,6 +185,17 @@ checkpoint is lost.
   thermal pad it plateaus at 62 C under sustained gaming with zero throttle
   events. The brownout is electrical, not thermal, but the 23 C of headroom is
   well worth the fitting.
+- With sleep masked, nothing turns the machine off on its own except the
+  HDMI-CEC service above. Idle draw measured at roughly 10 W at the APU
+  package (`amdgpu` `power1_average`, 20 samples), so probably 16 to 20 W at
+  the wall once the drive, fans and supply losses are counted. The `intel-rapl`
+  energy counter reports zero on this platform and cannot be used for energy
+  accounting.
+- **Unverified:** the drive's `unsafe_shutdowns` counter appeared to increment
+  across one textbook-clean power off. The baseline reading was a day old, so
+  this may be a stale comparison rather than a real effect. If it reproduces
+  under a controlled read-shutdown-read test, it would suggest the platform
+  does not send the drive a proper shutdown notification. Not yet tested.
 - This is a workaround for a genuine hardware mismatch. The clean alternative is
   a lower-power PCIe Gen4 drive. Use at your own risk.
 
