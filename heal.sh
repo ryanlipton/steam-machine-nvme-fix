@@ -11,14 +11,17 @@ install_into(){
   U="$1"; TAG="$2"; CH=0
   mkdir -p "$U/systemd/system/sysinit.target.wants" \
            "$U/systemd/system/timers.target.wants" \
+           "$U/systemd/system/multi-user.target.wants" \
            "$U/systemd/system-sleep"
-  for f in nvme-power-cap.service nvme-power-cap-heal.service nvme-power-cap-heal.timer; do
+  for f in nvme-power-cap.service nvme-power-cap-heal.service nvme-power-cap-heal.timer cec-standby-poweroff.service; do
     cmp -s "$M/$f" "$U/systemd/system/$f" || { cp "$M/$f" "$U/systemd/system/$f"; CH=1; }
   done
   [ -L "$U/systemd/system/sysinit.target.wants/nvme-power-cap.service" ] || \
     { ln -sf ../nvme-power-cap.service "$U/systemd/system/sysinit.target.wants/nvme-power-cap.service"; CH=1; }
   [ -L "$U/systemd/system/timers.target.wants/nvme-power-cap-heal.timer" ] || \
     { ln -sf ../nvme-power-cap-heal.timer "$U/systemd/system/timers.target.wants/nvme-power-cap-heal.timer"; CH=1; }
+  [ -L "$U/systemd/system/multi-user.target.wants/cec-standby-poweroff.service" ] || \
+    { ln -sf ../cec-standby-poweroff.service "$U/systemd/system/multi-user.target.wants/cec-standby-poweroff.service"; CH=1; }
   for h in nvme-power-cap.sh ath11k-reload.sh; do
     [ -f "$M/$h" ] || continue
     cmp -s "$M/$h" "$U/systemd/system-sleep/$h" || \

@@ -1,0 +1,12 @@
+[Unit]
+Description=Power off when the TV requests standby (sleep is masked)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/home/.nvme-power-cap/cec-standby-poweroff.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

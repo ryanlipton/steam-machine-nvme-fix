@@ -59,6 +59,7 @@ Two catches make this non-trivial to keep applied:
 | `nvme-power-cap.sh` | `systemd/system-sleep/` (both slots) | Re-applies the cap after every suspend/resume |
 | `heal.sh` + masters | `/home/.nvme-power-cap/` (shared partition, survives updates) | Verifies all artefacts on **both** slots, reinstalls anything an update removed, re-asserts the cap, re-asserts `nvme.noacpi=1` in grub, keeps the sleep-target masks in place, logs every run |
 | `ath11k-reload.sh` | `systemd/system-sleep/` (both slots) | Cold-inits the Wi-Fi card across suspend (resume-hang workaround; inert while sleep is masked) |
+| `cec-standby-poweroff.service` + `.sh` | `/etc` overlay on both slots, script in `/home/.nvme-power-cap/` | Turns the TV's "off" into a clean shutdown instead of a blocked sleep (see below) |
 | `nvme-power-cap-heal.service` + `.timer` | `/etc` overlay upper on both slots | Runs heal 2 minutes after boot and every 6 hours |
 
 The key mechanism: SteamOS mounts `/etc` as an overlay whose writable layer
@@ -107,6 +108,36 @@ Two findings from suspend testing on this machine (2026-07-18):
   a platform bug, not the SSD, and it is reported to Valve. Until it is fixed
   the blunt workaround is to disable sleep:
   `sudo systemctl mask sleep.target suspend.target`.
+
+## HDMI-CEC: TV on, TV off
+
+Worth knowing if you disable sleep on a Steam Machine plugged into a TV.
+
+The machine can be **powered on from a full shutdown** by the TV over CEC: turn
+the TV on and the console cold-boots by itself. This is a supported feature
+(`WakeDevice` on the SteamOS manager's HDMI-CEC interface, writable if you want
+it off), and it works from S5 because the embedded controller stays powered.
+It also makes remote power-on trivial: anything that can turn the TV on, such
+as a HomeKit or Alexa routine, boots the console as a side effect. No
+Wake-on-LAN needed.
+
+The reverse direction breaks once sleep is masked. Turning the TV off sends a
+CEC standby, and SteamOS answers it by asking logind to **suspend**, which the
+mask refuses:
+
+    systemd-logind: Unit suspend.target is masked, refusing operation.
+    cecd: ERROR Failed to standby: AccessDenied: Permission denied
+
+So the TV goes dark and the console stays on indefinitely. The
+`cec-standby-poweroff` service in this repo watches for exactly that refusal
+and powers the machine off instead, restoring the console-like pairing: TV on,
+machine on; TV off, machine off. It is self-limiting by design, since the
+refusal only happens while sleep is masked, so it never fires again once sleep
+is safe to re-enable.
+
+Note it powers off rather than suspending, so a game left running is closed by
+the shutdown. Steam Cloud syncs saves, but unsaved progress since the last
+checkpoint is lost.
 
 ## Caveats
 
