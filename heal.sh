@@ -14,6 +14,7 @@ install_into(){
            "$U/systemd/system/multi-user.target.wants" \
            "$U/systemd/system-sleep"
   for f in nvme-power-cap.service nvme-power-cap-heal.service nvme-power-cap-heal.timer cec-standby-poweroff.service; do
+    [ -f "$M/$f" ] || continue
     cmp -s "$M/$f" "$U/systemd/system/$f" || { cp "$M/$f" "$U/systemd/system/$f"; CH=1; }
   done
   [ -L "$U/systemd/system/sysinit.target.wants/nvme-power-cap.service" ] || \

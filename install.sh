@@ -17,7 +17,8 @@ set -euo pipefail
 
 POWER_STATE="${POWER_STATE:-2}"
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
-FILES=(heal.sh nvme-power-cap.service nvme-power-cap-heal.service nvme-power-cap-heal.timer nvme-power-cap.sh)
+FILES=(heal.sh nvme-power-cap.service nvme-power-cap-heal.service nvme-power-cap-heal.timer nvme-power-cap.sh
+       cec-standby-poweroff.service cec-standby-poweroff.sh ath11k-reload.sh)
 
 [[ $EUID -eq 0 ]] || { echo "Run as root."; exit 1; }
 for f in "${FILES[@]}"; do [[ -f "$SRC_DIR/$f" ]] || { echo "Missing $f next to install.sh"; exit 1; }; done
@@ -26,14 +27,19 @@ seed_overlay() { # $1 = path to a var partition's overlay upper root
     local U="$1"
     mkdir -p "$U/systemd/system/sysinit.target.wants" \
              "$U/systemd/system/timers.target.wants" \
+             "$U/systemd/system/multi-user.target.wants" \
              "$U/systemd/system-sleep"
     cp "$SRC_DIR/nvme-power-cap.service"      "$U/systemd/system/"
     cp "$SRC_DIR/nvme-power-cap-heal.service" "$U/systemd/system/"
     cp "$SRC_DIR/nvme-power-cap-heal.timer"   "$U/systemd/system/"
+    cp "$SRC_DIR/cec-standby-poweroff.service" "$U/systemd/system/"
+    # sleep hooks, same layout heal.sh maintains
     cp "$SRC_DIR/nvme-power-cap.sh"           "$U/systemd/system-sleep/"
-    chmod 755 "$U/systemd/system-sleep/nvme-power-cap.sh"
+    cp "$SRC_DIR/ath11k-reload.sh"            "$U/systemd/system-sleep/"
+    chmod 755 "$U/systemd/system-sleep/nvme-power-cap.sh" "$U/systemd/system-sleep/ath11k-reload.sh"
     ln -sf ../nvme-power-cap.service      "$U/systemd/system/sysinit.target.wants/nvme-power-cap.service"
     ln -sf ../nvme-power-cap-heal.timer   "$U/systemd/system/timers.target.wants/nvme-power-cap-heal.timer"
+    ln -sf ../cec-standby-poweroff.service "$U/systemd/system/multi-user.target.wants/cec-standby-poweroff.service"
 }
 
 install_masters() { # $1 = mounted home partition root
@@ -41,7 +47,7 @@ install_masters() { # $1 = mounted home partition root
     mkdir -p "$H"
     for f in "${FILES[@]}"; do cp "$SRC_DIR/$f" "$H/"; done
     chown -R root:root "$H"
-    chmod 755 "$H" "$H/heal.sh" "$H/nvme-power-cap.sh"
+    chmod 755 "$H" "$H/heal.sh" "$H/nvme-power-cap.sh" "$H/cec-standby-poweroff.sh" "$H/ath11k-reload.sh"
     chmod 644 "$H"/*.service "$H"/*.timer
 }
 
@@ -62,7 +68,7 @@ if findmnt -no SOURCE /home | grep -q partsets || findmnt -no SOURCE /home | gre
         umount "$T"; rmdir "$T"
     fi
     systemctl daemon-reload
-    systemctl enable --now nvme-power-cap.service nvme-power-cap-heal.timer
+    systemctl enable --now nvme-power-cap.service nvme-power-cap-heal.timer cec-standby-poweroff.service
     nvme set-feature /dev/nvme0 -f 0x02 --value="0x$POWER_STATE" || true
     echo ":: Installed. Cap active now and on every boot/resume; heal timer running."
 else
